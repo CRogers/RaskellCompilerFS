@@ -1,14 +1,48 @@
-﻿open FParsec.CharParsers
+﻿open FParsec
+open Lexer
+open Microsoft.FSharp.Text.Lexing
 open Parser
+open System
+open System.IO
+open System.Text
+
+open FailParser
+(*
+let fileToLexbuf file =
+    let stream = File.OpenText(file)
+    LexBuffer<_>.FromTextReader stream
+
+let stringToLexbuf str = 
+    LexBuffer<_>.FromString str
+
+let parse (text: array<string>) =
+    let lexbuf = stringToLexbuf <| String.Join ("\n", text)
+    try
+        Parser.program Lexer.token lexbuf
+    with
+        | ex ->
+            failwithf "Parse error at line %d char %d" lexbuf.StartPos.Line lexbuf.StartPos.Column
+
+let parseFile file = parse (File.ReadAllLines file)
+let parseText (text: string) = parse <| text.Split('\n')*)
 
 let test p str =
-    match run p str with
-        | Success (result, _, _)  -> printfn "Success: %A" result
-        | Failure(errorMsg, _, _) -> printfn "Failure: %s" errorMsg
+    match parse p str with
+        | Success (result, us, _) ->
+            printfn "Success: %A" result
+            printfn "Debug:\n\n%s" us.Debug.Message
+        | Failure (msg, _, us)   ->
+            printfn "Failure: %A\n" msg
+            printfn "Debug:\n\n%s" us.Debug.Message
 
 [<EntryPoint>]
 let main argv =
-    test topLevelDefn "abc b c = (d e) f"
+    //let cu = parseText "foo a b c = f x"
+    //printfn "%A" cu
 
-    printfn "%A" argv
-    0 // return an integer exit code
+    test params_ "a"
+    test topLevelDefn "foo = f"
+    test topLevelDefn "foo a = f x"
+    test topLevelDefn "foo a b c = f z (x y)"
+
+    0 

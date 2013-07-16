@@ -1,0 +1,54 @@
+﻿%{
+
+open Tree
+
+%}
+
+%token<string> IDENT TYPE SYMBOL
+%token         LPAR RPAR EQUALS EOF
+
+%type<CompilationUnit> program
+%start program
+
+%%
+
+pattern:
+    | IDENT { $1 }
+
+patternList:
+    | pattern
+        { [$1] }
+    | pattern patternList
+        { $1 :: $2 }
+
+exprBasic:
+    | IDENT
+        { Ident { Name = $1 } }
+    | LPAR exprApp RPAR
+        { $2 }
+
+exprBasicList:
+    | exprBasic
+        { [$1] }
+    | exprBasic exprBasicList
+        { $1 :: $2 }
+
+exprApp:
+    | exprBasic exprBasicList
+        { App { Func = $1; Args = $2 } }
+    /*| exprBasic
+        { $1 }*/
+
+funcDef:
+    | IDENT patternList EQUALS exprApp
+        { FuncDef { Name = $1; Params = $2; Expr = $4 } }
+
+topLevelDecls:
+    | /* empty */
+        { [] }
+    | funcDef topLevelDecls
+        { $1 :: $2 }
+
+program:
+    | topLevelDecls EOF
+        { $1 }

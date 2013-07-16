@@ -1,0 +1,41 @@
+﻿{
+
+module Lexer
+
+open System
+open Microsoft.FSharp.Text.Lexing
+open Parser
+open Tree
+
+let lexeme = Lexing.LexBuffer<_>.LexemeString
+let newline (lexbuf:LexBuffer<_>) = lexbuf.EndPos <- lexbuf.EndPos.NextLine
+
+let symbolMap = Map([
+    "=", EQUALS
+    "(", LPAR
+    ")", RPAR
+])
+
+let trySymbol s =
+    match Map.tryFind s symbolMap with
+        | Some x -> x
+        | None -> SYMBOL s
+
+}
+
+let ident = ['a'-'z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* '\''*
+let typeName = ['A'-'Z' '_'] ['a'-'z' 'A'-'Z' '_' '0'-'9']* '\''*
+let symbol = ['+' '-' '*' '/' '%' '&' '|' '!' '=' '?' '<' '>']+
+let white = [' ' '\t']
+let endline = '\r'? '\n'
+
+rule token = parse
+    | white+ { token lexbuf }
+    | endline { newline lexbuf; token lexbuf }
+    | eof { EOF }
+    | ident { IDENT (lexeme lexbuf) }
+    | typeName { TYPE (lexeme lexbuf) }
+    | '(' { LPAR }
+    | ')' { RPAR }
+    | symbol { trySymbol (lexeme lexbuf) }
+    | _ { failwithf "Cannot lex %s" (lexeme lexbuf) }

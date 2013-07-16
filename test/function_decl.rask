@@ -1,0 +1,7 @@
+type Foo a b c = Kitten | 
+
+app f x y = f x y
+
+f x y
+f (x y)
+f (x) (y z)

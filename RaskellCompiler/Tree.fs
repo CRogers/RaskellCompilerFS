@@ -1,7 +1,7 @@
 ﻿module Tree
 
 type NameRec = { Name: string }
-type AppRec = { F: Expr; Args: Expr list }
+type AppRec = { Func: Expr; Args: Expr list }
 
 and Expr = 
     | Ident of NameRec
@@ -12,3 +12,5 @@ type FuncDefRec = { Name: string; Params: string list; Expr: Expr }
 
 type TopDecl =
     | FuncDef of FuncDefRec
+
+type CompilationUnit = TopDecl list
