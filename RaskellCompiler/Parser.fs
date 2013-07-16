@@ -1,4 +1,4 @@
-﻿module FailParser
+﻿module Parser
 
 open FParsec
 open FParsec.Primitives
@@ -122,7 +122,3 @@ let topLevelDefn = funcDef
 
 let parse p str = runParserOnString p ({ Debug = { Message = ""; Indent = 0 } }) "" str
 let parseProgram str = parse topLevelDefn str
-
-
-
-let sepByTest:P<_> = sepBy (pchar 'a' <!> "a") (pchar 'b' <!> "b") <!> "sepByTest"

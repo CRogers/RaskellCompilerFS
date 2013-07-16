@@ -41,12 +41,7 @@
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <ItemGroup>
     <Compile Include="Tree.fs" />
-    <Compile Include="FailParser.fs" />
     <Compile Include="Parser.fs" />
-    <None Include="Parser.fsy" />
-    <Compile Include="Lexer.fs" />
-    <None Include="Lexer.fsl" />
-    <Compile Include="FParsecProblem.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <None Include="packages.config" />
@@ -85,8 +80,8 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <PropertyGroup>
-    <PreBuildEvent>rem "$(ProjectDir)\..\packages\FSPowerPack.Community.3.0.0.0\Tools\fslex" --unicode "$(ProjectDir)\Lexer.fsl" -o "$(ProjectDir)\Lexer.fs"
-rem "$(ProjectDir)\..\packages\FSPowerPack.Community.3.0.0.0\Tools\fsyacc" "$(ProjectDir)\Parser.fsy" --module Parser</PreBuildEvent>
+    <PreBuildEvent>
+    </PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
