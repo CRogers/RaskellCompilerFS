@@ -53,13 +53,24 @@ let (<!>) (p: P<_>) label :P<_> =
 let (<?!>) (p: P<_>) label :P<_> =
     p <?> label <!> label
 
+let wschar = anyOf " \t"
 
 let ws =
-    anyOf " \t"
-    |> many1
+    many wschar
+    |>> ignore
     <?!> "whitespace"
 
-let w p = p .>> ws 
+let ws1 =
+    many1 wschar
+    |>> ignore
+    <?!> "whitespace1"
+
+let w p = p .>> ws1
+
+let nl = many skipNewline |>> ignore <?!> "newlines"
+
+let wsn:P<_> =
+    spaces
 
 let asciiMixedString: P<_> = many asciiLetter
 let word: P<_> = many (asciiLetter <|> pchar '_')
@@ -81,18 +92,24 @@ let param =
     <?!> "parameter"
 
 let params_ =
-    many (w param) <!> "params"
+    parse {
+        let! ps = many (attempt (ws >>. param))
+        do! ws
+        return ps
+    } <!> "params"
 
 let expr, exprRef = createParserForwardedToRef ()
 
-let var = 
-    parse {
-        let! id = ident
-        return Ident { Name = id }
-    } <!> "var"
+let var = ident |>> Var <!> "var"
+
+let constInt =
+    pint32
+    |>> ConstInt
+    <?!> "int32"
 
 let exprBasic = 
     choice [
+        constInt
         var
         pchar '(' >>. expr .>> pchar ')'
     ]
@@ -101,23 +118,33 @@ let exprBasic =
 let app =
     parse {
         let! f = w exprBasic
-        let! args = sepBy1 exprBasic ws
-        return App { Func = f; Args = args }
+        let! args = sepBy1 exprBasic ws1
+        return App (f, args)
     } <!> "app"
 
 do exprRef :=
     choice [
-        app
+        attempt app
+        exprBasic
     ]
     <?!> "expression"
 
 // foo x y z = <expr>
-let funcDef = 
-    pipe3 (w ident) (params_ .>> w (pchar '=' <!> "eq")) expr
-    <| fun id ps e -> FuncDef { Name = id; Params = ps; Expr = e; }
+let funcDef =
+    parse {
+        let! id = ident
+        let! ps = params_
+        let! _  = pchar '=' <!> "eq"
+        do!       ws
+        let! e  = expr
+        let! _  = ws >>. skipNewline
+        return FuncDef { Name = id; Params = ps; Expr = e; }        
+    }
+    //pipe3 (w ident) (params_ .>> w (pchar '=' <!> "eq")) (expr .>> ws .>> skipNewline)
+    //<| fun id ps e -> FuncDef { Name = id; Params = ps; Expr = e; }
     <?!> "top level function definition"
 
-let topLevelDefn = funcDef
+let topLevelDefn = funcDef .>> wsn
 
 
 let parse p str = runParserOnString p ({ Debug = { Message = ""; Indent = 0 } }) "" str

@@ -1,12 +1,12 @@
 ﻿module Tree
 
-type NameRec = { Name: string }
-type AppRec = { Func: Expr; Args: Expr list }
+type Name = string
 
 and Expr = 
-    | Ident of NameRec
-    | Type of NameRec
-    | App of AppRec
+    | ConstInt of int
+    | Var of Name
+    | Type of Name
+    | App of Expr * Expr list
 
 type FuncDefRec = { Name: string; Params: string list; Expr: Expr }
 
