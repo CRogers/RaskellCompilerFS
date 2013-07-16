@@ -19,15 +19,15 @@ let addToDebug (stream:CharStream<UserState>) label dtype =
 
     let startIndent = stream.UserState.Debug.Indent
     let (str, curIndent, nextIndent) = match dtype with
-        | Enter    -> sprintf "Entering %s" label, startIndent, startIndent+1
+        | Enter    -> sprintf "\u250CEntering %s" label, startIndent, startIndent+1
         | Leave res ->
-            let str = sprintf "Leaving  %s (%A)" label res.Status
+            let str = sprintf "\u2514Leaving  %s (%A)" label res.Status
             let resStr = sprintf "%s %A" (str.PadRight(msgPadLen-startIndent-1)) res.Result
             resStr, startIndent-1, startIndent-1
 
     let indentStr =
-        if curIndent = 0 then ""
-        else "\u251C".PadRight(curIndent, '\u251C')
+        //if curIndent = 0 then ""
+        "".PadRight(curIndent, '\u2502')
 
     let posStr = (sprintf "%A: " stream.Position).PadRight(20)
     let posIdentStr = posStr + indentStr
@@ -36,7 +36,7 @@ let addToDebug (stream:CharStream<UserState>) label dtype =
     let replaceStr = "\n" + "".PadRight(posStr.Length) + "".PadRight(curIndent, '\u2502').PadRight(msgPadLen)
     let correctedStr = str.Replace("\n", replaceStr)
 
-    let fullStr = sprintf "%s %s\n" posIdentStr correctedStr
+    let fullStr = sprintf "%s%s\n" posIdentStr correctedStr
 
     stream.UserState.Debug <- {
         Message = stream.UserState.Debug.Message + fullStr
@@ -93,7 +93,7 @@ let param =
 
 let params_ =
     parse {
-        let! ps = many (attempt (ws >>. param))
+        let! ps = many (attempt (ws1 >>. param))
         do! ws
         return ps
     } <!> "params"
@@ -117,14 +117,14 @@ let exprBasic =
 
 let app =
     parse {
-        let! f = w exprBasic
-        let! args = sepBy1 exprBasic ws1
+        let! f = exprBasic
+        let! args = many (attempt (ws1 >>. exprBasic) <!> "INNER")
         return App (f, args)
     } <!> "app"
 
 do exprRef :=
     choice [
-        attempt app
+        attempt app <!> "FOO"
         exprBasic
     ]
     <?!> "expression"
@@ -139,13 +139,12 @@ let funcDef =
         let! e  = expr
         let! _  = ws >>. skipNewline
         return FuncDef { Name = id; Params = ps; Expr = e; }        
-    }
-    //pipe3 (w ident) (params_ .>> w (pchar '=' <!> "eq")) (expr .>> ws .>> skipNewline)
-    //<| fun id ps e -> FuncDef { Name = id; Params = ps; Expr = e; }
-    <?!> "top level function definition"
+    } <?!> "top level function definition"
 
-let topLevelDefn = funcDef .>> wsn
+let topLevelDefn = funcDef
+
+let compilationUnit = wsn >>. many (topLevelDefn .>> (wsn <!> "endspace"))
 
 
 let parse p str = runParserOnString p ({ Debug = { Message = ""; Indent = 0 } }) "" str
-let parseProgram str = parse topLevelDefn str
+let parseProgram str = parse compilationUnit str
