@@ -9,7 +9,7 @@ open Testing
 let main argv = 
     tester {
         do! blockName "simple"
-        do! showSuccessResult
+        //do! showSuccessResult
         do! testMany [
             @"foo = f"
             @"foo = a b   "
@@ -23,11 +23,26 @@ foo x y = a b
         ]
 
         do! blockName "let expressions"
-        do! showSuccessResult
+        //do! showSuccessResult
         do! testMany [
             @"a = let x = b in x"
             @"a=let x=b in x"
             @"a = let x = let y = b in y in x"
+        ]
+
+        do! blockName "lambda expressions"
+        //do! showSuccessResult
+        do! testMany [
+            @"a = \x -> x"
+            @"a=\x->x"
+            @"a= \x y -> y"
+        ]
+
+        do! blockName "if then else"
+        do! showSuccessResult
+        do! testMany [
+            @"a = if b then c else d"
+            @"a = if if b then t else f then c else d"
         ]
     }
     |> runTester

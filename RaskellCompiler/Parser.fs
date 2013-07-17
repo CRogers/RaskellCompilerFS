@@ -75,7 +75,7 @@ let wsn:P<_> =
 let asciiMixedString: P<_> = many asciiLetter
 let word: P<_> = many (asciiLetter <|> pchar '_')
 
-let keyword:P<_> = choice (Seq.map pstring ["let"; "in"])
+let keyword:P<_> = choice (Seq.map pstring ["let"; "in"; "if"; "then"; "else"])
 
 let ident =
     notFollowedBy keyword
@@ -102,6 +102,13 @@ let params_ =
         do! ws
         return ps
     } <!> "params"
+
+let params1 =
+    parse {
+        let! p = param
+        let! ps = many (attempt (ws1 >>. param))
+        return p :: ps
+    }
 
 let expr, exprRef = createParserForwardedToRef ()
 
@@ -132,6 +139,29 @@ let letExpr =
         return Let (n, e1, e2)
     } <?!> "let expression"
 
+let lambda =
+    parse {
+        do! skipChar '\\'
+        let! ps = params1
+        do! ws
+        do! skipString "->" <!> "->"
+        do! ws
+        let! e = expr
+        return Lambda (ps, e)
+    } <?!> "lambda"
+
+let ifThenElse =
+    parse {
+        do! skipString "if"
+        do! ws1
+        let! e1 = expr
+        do! ws1 >>. skipString "then" >>. ws1
+        let! e2 = expr
+        do! ws1 >>. skipString "else" >>. ws1
+        let! e3 = expr
+        return If (e1, e2, e3)
+    } <?!> "if expression"
+
 let app =
     parse {
         let! f = exprBasic
@@ -142,6 +172,8 @@ let app =
 do exprRef :=
     choice [
         letExpr
+        lambda
+        ifThenElse
         attempt app
         exprBasic
     ]
@@ -155,7 +187,7 @@ let funcDef =
         do!       ws
         let! e  = expr
         let! _  = ws >>. skipNewline
-        return FuncDef { Name = id; Params = ps; Expr = e; }        
+        return FuncDef { Name = id; Expr = if ps.Length = 0 then e else Lambda (ps, e) }        
     } <?!> "top level function definition"
 
 let topLevelDefn = funcDef
