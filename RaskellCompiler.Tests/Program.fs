@@ -9,6 +9,7 @@ open Testing
 let main argv = 
     tester {
         do! blockName "simple"
+        do! showSuccessResult
         do! testMany [
             @"foo = f"
             @"foo = a b   "
@@ -19,6 +20,14 @@ foo x y = a b
    bar = quux c   
    "
             @"foo a b c = a (b (c (c c) b)) c"
+        ]
+
+        do! blockName "let expressions"
+        do! showSuccessResult
+        do! testMany [
+            @"a = let x = b in x"
+            @"a=let x=b in x"
+            @"a = let x = let y = b in y in x"
         ]
     }
     |> runTester

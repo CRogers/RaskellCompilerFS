@@ -10,14 +10,26 @@ type Failure = {
     Trace: string
 }
 
-type TestBlock = {
+type Success = {
+    Code: string
+    Result: string
+    Trace: string
+}
+
+type BlockOptions = {
     Name: string
-    Successes: int
+    ShowSuccessResult: bool
+    ShowSuccessTrace: bool
+}
+
+type TestBlock = {
+    BlockOptions: BlockOptions
+    Successes: Success list
     Failures:  Failure list
 }
 
 type TestData = {
-    BlockName:  string
+    BlockOptions: BlockOptions
     TestBlocks: Map<string,TestBlock>
 }
 
@@ -29,26 +41,52 @@ type TesterBuilder() =
 
 let tester = TesterBuilder()
 
-let blockName n td = { td with BlockName = n }
+let setShowSuccessResult b (td:TestData) = { td with BlockOptions = { td.BlockOptions with ShowSuccessResult = b } }
+let showSuccessResult = setShowSuccessResult true
+let hideSuccessResult = setShowSuccessResult false
+
+let setShowSuccessTrace b (td:TestData) = { td with BlockOptions = { td.BlockOptions with ShowSuccessTrace = b } }
+let showSuccessTrace = setShowSuccessTrace true
+let hideSuccessTrace = setShowSuccessTrace false
+
+let showSuccessAll td = showSuccessTrace td |> showSuccessResult
+let hideSuccessAll td = hideSuccessTrace td |> hideSuccessResult
+
+let blockName n (td:TestData) =
+    { td with
+        BlockOptions = { td.BlockOptions with
+            Name = n
+            ShowSuccessResult = false
+            ShowSuccessTrace = false
+        }
+    }
 
 let test str td =
     let str = str + "\n"
-    let block = match Map.tryFind td.BlockName td.TestBlocks with
+    let block = match Map.tryFind td.BlockOptions.Name td.TestBlocks with
         | Some b -> b
-        | None   -> { Name = td.BlockName; Successes = 0; Failures = [] }
+        | None   -> { BlockOptions = td.BlockOptions; Successes = []; Failures = [] }
 
     let newBlock = match parseProgram str with
-        | Success _ -> { block with Successes = block.Successes + 1 }
+        | Success (res, us, _) ->
+            { block with Successes = { Code = str; Result = sprintf "%A" res; Trace = us.Debug.Message } :: block.Successes }
         | Failure (msg, _, us)   ->
             { block with Failures = { Code = str; Error = msg; Trace = us.Debug.Message } :: block.Failures }
 
-    { td with TestBlocks = td.TestBlocks.Add(td.BlockName, newBlock) }
+    { td with TestBlocks = td.TestBlocks.Add(td.BlockOptions.Name, newBlock) }
 
 let testMany strs td =
     Seq.fold (fun td str -> test str td) td strs
 
 
-let runTester (tester:TestM) = tester { BlockName = "default"; TestBlocks = Map.empty }
+let runTester (tester:TestM) = tester {
+    BlockOptions = {
+        Name = "default"
+        ShowSuccessResult = false
+        ShowSuccessTrace = false
+    }
+    TestBlocks = Map.empty
+}
 
 let setConCol concol = Console.ForegroundColor <- concol
 
@@ -64,21 +102,40 @@ let printTestData td =
     let origCol = Console.ForegroundColor
 
     for name, block in Map.toSeq td.TestBlocks do
-        let total = block.Successes + block.Failures.Length
+        let total = block.Successes.Length + block.Failures.Length
 
         cprintfn ConsoleColor.Cyan "-------------------------------------------"
         cprintfn ConsoleColor.Cyan "Test Block: %s" name
         cprintfn ConsoleColor.DarkCyan "%s\n" <| "".PadRight(12+name.Length, '-')
         
-        cprintfn ConsoleColor.DarkGreen "Successes: %d/%d" block.Successes total
+        cprintfn ConsoleColor.DarkGreen "Successes: %d/%d" block.Successes.Length total
 
-        if block.Successes = total then
+        if block.Successes.Length = total then
             cprintfn ConsoleColor.Green "All Passed!"
 
-        if block.Failures.Length > 0 then
-            cprintfn ConsoleColor.DarkRed "Failures:  %d\n" block.Failures.Length
+        let bo = block.BlockOptions
 
-            for fail in block.Failures do
+        if (bo.ShowSuccessResult || bo.ShowSuccessTrace) && block.Successes.Length > 0 then
+            for succ in List.rev block.Successes do
+                cprintfn ConsoleColor.DarkGreen "-------------------------"
+                cprintfn ConsoleColor.DarkGreen "Code:"
+                cprintfn origCol "%s" succ.Code
+
+                if bo.ShowSuccessResult then
+                    cprintfn ConsoleColor.DarkGreen "Result:"
+                    cprintfn origCol "%s" succ.Result
+
+                if bo.ShowSuccessTrace then
+                    cprintfn ConsoleColor.DarkGreen "Trace:"
+                    cprintfn origCol "%s" succ.Trace
+
+                printfn ""
+            printfn ""
+
+        if block.Failures.Length > 0 then
+            cprintfn ConsoleColor.DarkRed "Failures:  %d" block.Failures.Length
+
+            for fail in List.rev block.Failures do
                 cprintfn ConsoleColor.DarkRed "-------------------------"
                 cprintfn ConsoleColor.DarkRed "Code:"
                 cprintfn origCol "%s" fail.Code

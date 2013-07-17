@@ -53,7 +53,7 @@ let (<!>) (p: P<_>) label :P<_> =
 let (<?!>) (p: P<_>) label :P<_> =
     p <?> label <!> label
 
-let wschar = anyOf " \t"
+let wschar = anyOf " \t" <?> "whitespace"
 
 let ws =
     many wschar
@@ -75,12 +75,17 @@ let wsn:P<_> =
 let asciiMixedString: P<_> = many asciiLetter
 let word: P<_> = many (asciiLetter <|> pchar '_')
 
+let keyword:P<_> = choice (Seq.map pstring ["let"; "in"])
+
 let ident =
-    parse {
+    notFollowedBy keyword
+    >>. parse {
         let! fc = asciiLower
         let! w = word
         return string <| fc :: w
-    } <?!> "identifier"
+    }
+    
+    <?!> "identifier"
 
 let type_ =
     asciiUpper .>>. word
@@ -115,21 +120,33 @@ let exprBasic =
     ]
     <!> "exprBasic"
 
+let letExpr =
+    parse {
+        do! skipString "let"
+        do! ws1
+        let! n = ident
+        do! ws >>. (skipChar '=' <!> "eq") >>. ws
+        let! e1 = expr
+        do! ws1 >>. skipString "in" >>. ws1
+        let! e2 = expr
+        return Let (n, e1, e2)
+    } <?!> "let expression"
+
 let app =
     parse {
         let! f = exprBasic
-        let! args = many (attempt (ws1 >>. exprBasic) <!> "INNER")
+        let! args = many1 (attempt (ws1 >>. exprBasic))
         return App (f, args)
     } <!> "app"
 
 do exprRef :=
     choice [
-        attempt app <!> "FOO"
+        letExpr
+        attempt app
         exprBasic
     ]
     <?!> "expression"
 
-// foo x y z = <expr>
 let funcDef =
     parse {
         let! id = ident
